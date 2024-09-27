@@ -1,10 +1,19 @@
-variable "vpc_cidr_block" {
- type = string
+variable "vpc_cidr" {
+  description = "Vpc CIDR"
+  type        = string
 }
 
-variable "private_subnet_cidr_blocks" {
- type = list(string)
+variable "public_subnets" {
+  description = "public_subnets CIDR"
+  type        = list(string)
 }
-variable "public_subnet_cidr_blocks" {
- type = list(string)
+
+variable "private_subnets" {
+  description = "private_subnets CIDR"
+  type        = list(string)
+}
+
+variable "instance_types" {
+  description = "Node Instances"
+  type        = list(string)
 }

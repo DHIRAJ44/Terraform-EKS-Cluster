@@ -1,53 +1,62 @@
-data "aws_availability_zones" "azs" {}
-module "myjenkins-server-vpc" {
-  source          = "terraform-aws-modules/vpc/aws"
-  name            = "myjenkins-server-vpc"
-  cidr            = var.vpc_cidr_block
-  private_subnets = var.private_subnet_cidr_blocks
-  public_subnets  = var.public_subnet_cidr_blocks
-  azs             = data.aws_availability_zones.azs.names
+#Vpc
+module "vpc" {
+  source = "terraform-aws-modules/vpc/aws"
 
+  name = "eks_cluster_vpc"
+  cidr = var.vpc_cidr
+
+  azs             = data.aws_availability_zones.azs.names
+  public_subnets  = var.public_subnets
+  private_subnets = var.private_subnets
+
+
+  enable_dns_hostnames = true
   enable_nat_gateway   = true
   single_nat_gateway   = true
-  enable_dns_hostnames = true
 
   tags = {
-    "kubernetes.io/cluster/myjenkins-server-eks-cluster" = "shared"
+    "kubernetes.io/cluster/my-eks-cluster" = "shared"
   }
-
   public_subnet_tags = {
-    "kubernetes.io/cluster/myjenkins-server-eks-cluster" = "shared"
-    "kubernetes.io/role/elb"                  = 1
-  }
+    "kubernetes.io/cluster/my-eks-cluster" = "shared"
+    "kubernetes.io/role/elb"               = 1
 
+  }
   private_subnet_tags = {
-    "kubernetes.io/cluster/myjenkins-server-eks-cluster" = "shared"
-    "kubernetes.io/role/internal-elb"         = 1
+    "kubernetes.io/cluster/my-eks-cluster" = "shared"
+    "kubernetes.io/role/private_elb"       = 1
+
   }
 }
+
+#EKS
+
 module "eks" {
-    source  = "terraform-aws-modules/eks/aws"
-    version = "~> 19.0"
-    cluster_name = "myjenkins-server-eks-cluster"
-    cluster_version = "1.24"
+  source                         = "terraform-aws-modules/eks/aws"
+  cluster_name                   = "my-eks-cluster"
+  cluster_version                = "1.29"
+  cluster_endpoint_public_access = true
+  vpc_id                         = module.vpc.vpc_id
+  subnet_ids                     = module.vpc.private_subnets
 
-    cluster_endpoint_public_access  = true
-
-    vpc_id = module.myjenkins-server-vpc.vpc_id
-    subnet_ids = module.myjenkins-server-vpc.private_subnets
-
-    tags = {
-        environment = "development"
-        application = "myjenkins-server"
+  eks_managed_node_groups = {
+    nodes = {
+      min_size       = 1
+      max_size       = 3
+      desired_size   = 2
+      instance_types = var.instance_types
     }
+  }
+  tags = {
+    Environment = "dev"
+    Terraform   = "true"
+  }
+}
 
-    eks_managed_node_groups = {
-        dev = {
-            min_size = 1
-            max_size = 3
-            desired_size = 2
+data "aws_eks_cluster" "cluster" {
+  name = module.eks.cluster_id
+}
 
-            instance_types = ["t2.small"]
-        }
-    }
+data "aws_eks_cluster_auth" "cluster" {
+  name = module.eks.cluster_id
 }
